@@ -136,18 +136,6 @@ class Bagua:
             'dui': 'metal'  # Lake - Metal
         }
 
-        # Define the Prior Heaven (Fu Xi) sequence
-        self.prior_heaven_sequence = [
-            'kun', 'gen', 'kan', 'xun',
-            'zhen', 'li', 'dui', 'qian'
-        ]
-
-        # Define the Later Heaven (King Wen) sequence
-        self.later_heaven_sequence = [
-            'kan', 'kun', 'zhen', 'gen',
-            'qian', 'dui', 'li', 'xun'
-        ]
-
 
 class Hexagrams:
     """The 64 Hexagrams of the I-Ching"""
@@ -156,9 +144,6 @@ class Hexagrams:
         self.bagua = Bagua()
         self.hexagrams = self._generate_hexagrams()
         self.hexagram_names = self._get_hexagram_names()
-        self.change_lines = self._calculate_change_lines()
-        self.opposite_hexagrams = self._calculate_opposites()
-        self.nuclear_hexagrams = self._calculate_nuclear_hexagrams()
 
     def _generate_hexagrams(self):
         """Generate all 64 hexagrams as combinations of two trigrams"""
@@ -252,67 +237,6 @@ class Hexagrams:
         }
 
         return names
-
-    def _calculate_change_lines(self):
-        """Calculate transitions between hexagrams based on line changes"""
-        changes = {}
-        for i in range(64):
-            changes[i] = {}
-            for j in range(64):
-                if i == j:
-                    continue
-                # Calculate Hamming distance (number of changed lines)
-                lines_i = self.hexagrams[i]['lines']
-                lines_j = self.hexagrams[j]['lines']
-                changed_lines = [k for k in range(6) if lines_i[k] != lines_j[k]]
-                changes[i][j] = changed_lines
-        return changes
-
-    def _calculate_opposites(self):
-        """Calculate opposite hexagrams (all lines reversed)"""
-        opposites = {}
-        for i in range(64):
-            lines = self.hexagrams[i]['lines']
-            # Reverse all lines (0->1, 1->0)
-            reversed_lines = [1 - line for line in lines]
-            # Convert to index
-            idx = sum(line * (2 ** i) for i, line in enumerate(reversed(reversed_lines)))
-            opposites[i] = idx
-        return opposites
-
-    def _calculate_nuclear_hexagrams(self):
-        """Calculate nuclear hexagrams (derived from the inner four lines)"""
-        nuclear = {}
-        for i in range(64):
-            lines = self.hexagrams[i]['lines']
-            # Upper nuclear trigram is formed from lines 2, 3, 4
-            upper_nuclear = lines[1:4]
-            # Lower nuclear trigram is formed from lines 3, 4, 5
-            lower_nuclear = lines[2:5]
-            # Combine to form nuclear hexagram
-            nuclear_lines = upper_nuclear + lower_nuclear
-            # Convert to index
-            idx = sum(line * (2 ** i) for i, line in enumerate(reversed(nuclear_lines)))
-            nuclear[i] = idx
-        return nuclear
-
-    def get_hexagram_transition_type(self, from_hex, to_hex):
-        """Determine the type of transition between hexagrams"""
-        if from_hex == to_hex:
-            return "identical"
-
-        changed_lines = self.change_lines[from_hex][to_hex]
-
-        if len(changed_lines) == 1:
-            return "single_line"
-        elif len(changed_lines) == 6:
-            return "opposite"
-        elif to_hex == self.nuclear_hexagrams[from_hex]:
-            return "nuclear"
-        elif len(changed_lines) == 3 and set(changed_lines) == {0, 2, 4} or set(changed_lines) == {1, 3, 5}:
-            return "alternating"
-        else:
-            return "standard"
 
 
 class BaguaActivations(nn.Module):
@@ -412,14 +336,6 @@ class HexagramStateTracker(nn.Module):
 
         return hex_index
 
-    def get_transition_type(self):
-        """Get the type of the most recent transition"""
-        if len(self.hexagram_transition_history) == 0:
-            return "initial"
-
-        from_hex, to_hex = self.hexagram_transition_history[-1]
-        return self.hexagrams.get_hexagram_transition_type(from_hex, to_hex)
-
     def get_current_hexagram_lines(self):
         """Get the current hexagram's lines"""
         hex_index = torch.argmax(self.current_hexagram).item()
@@ -469,40 +385,28 @@ class Element(Enum):
         }
         return colors[self]
 
-    @property
-    def nature(self):
-        natures = {
-            Element.WATER: "Descending",
-            Element.WOOD: "Seeking Rise",
-            Element.FIRE: "Rising",
-            Element.EARTH: "Stabilizing",
-            Element.METAL: "Seeking Descent"
-        }
-        return natures[self]
 
+class SimplifiedWuXing:
+    """
+    Simplified Wu Xing system focused on the essential generation and conquest cycles.
+    Uses bounded mathematics to prevent instability.
+    """
 
-class WuXingSystem:
-    """Complete Wu Xing system with all elemental cycles"""
-
-    def __init__(self, initial_state=None):
-        """Initialize the system with element values"""
-        # Default initial state: balanced
-        if initial_state is None:
-            initial_state = {element: 20.0 for element in Element}
-
-        self.state = initial_state.copy()
+    def __init__(self):
+        # Initialize with balanced element values
+        self.state = {element: 20.0 for element in Element}
         self.history = [self.state.copy()]
 
-        # Define generation cycle (生, sheng): each element generates the next
+        # Define generation cycle: each element generates the next
         self.generation_cycle = {
             Element.WATER: Element.WOOD,  # Water nourishes Wood
             Element.WOOD: Element.FIRE,  # Wood feeds Fire
-            Element.FIRE: Element.EARTH,  # Fire creates Earth (ash)
+            Element.FIRE: Element.EARTH,  # Fire creates Earth
             Element.EARTH: Element.METAL,  # Earth bears Metal
-            Element.METAL: Element.WATER  # Metal collects Water (condensation)
+            Element.METAL: Element.WATER  # Metal collects Water
         }
 
-        # Define conquest cycle (克, ke): each element conquers another
+        # Define conquest cycle: each element controls another
         self.conquest_cycle = {
             Element.WATER: Element.FIRE,  # Water extinguishes Fire
             Element.FIRE: Element.METAL,  # Fire melts Metal
@@ -511,18 +415,17 @@ class WuXingSystem:
             Element.EARTH: Element.WATER  # Earth absorbs Water
         }
 
-        # Coefficients for various cycles
+        # Cycle coefficients
         self.coefficients = {
-            'generation': 0.3,  # Generation effect strength
-            'conquest': 0.4,  # Conquest effect strength
-            'balance': 0.15  # Balance effect strength
+            'generation': 0.2,  # Generation effect strength
+            'conquest': 0.1  # Conquest effect strength
         }
 
     def step(self, dt=0.1):
-        """Advance the system by one time step with proper bounds"""
+        """Advance system by one step with bounded mathematics"""
         new_state = self.state.copy()
 
-        # Calculate all interactions
+        # Apply generation and conquest effects
         for source in Element:
             for target in Element:
                 if source == target:
@@ -530,130 +433,104 @@ class WuXingSystem:
 
                 # Generation effect (source generates target)
                 if self.generation_cycle[source] == target:
-                    # Never take more than what's available
-                    effect = min(new_state[source] * 0.3, self.coefficients['generation'] * new_state[source] * dt)
+                    # Calculate effect based on available energy
+                    effect = min(
+                        new_state[source] * 0.2,  # Can't give more than 20% of current value
+                        self.coefficients['generation'] * new_state[source] * dt
+                    )
+
                     new_state[target] += effect
-                    # Source decreases when generating, but never below minimum
-                    new_state[source] = max(0.1, new_state[source] - effect * 0.5)
+                    new_state[source] = max(1.0, new_state[source] - effect * 0.5)
 
-                # Conquest effect (source conquers target)
+                # Conquest effect (source controls target)
                 if self.conquest_cycle[source] == target:
-                    # Scale conquest effect by available target energy
-                    effect = -min(new_state[target] * 0.5, self.coefficients['conquest'] * new_state[source] * dt)
-                    new_state[target] = max(0.1, new_state[target] + effect)
+                    # Limit effect based on target's current value
+                    effect = -min(
+                        new_state[target] * 0.15,  # Can't reduce by more than 15%
+                        self.coefficients['conquest'] * new_state[source] * dt
+                    )
 
-        # Apply natural tendencies based on elemental nature with proper bounds
-        for element in Element:
-            if element == Element.FIRE:  # Fire rises
-                new_state[element] *= min(1.05, 1 + 0.01 * dt)  # Limited natural increase
-            elif element == Element.WATER:  # Water descends
-                new_state[element] = max(0.1, new_state[element] * (1 - 0.01 * dt))  # Prevent negative
-            elif element == Element.EARTH:  # Earth stabilizes
-                # Move toward the average
-                avg = sum(new_state.values()) / len(new_state)
-                new_state[element] += (avg - new_state[element]) * 0.1 * dt
+                    new_state[target] = max(1.0, new_state[target] + effect)
 
-        # Hard bounds to prevent extreme values
-        for element in Element:
-            new_state[element] = max(0.1, min(100.0, new_state[element]))
-
-        # Apply soft normalization to prevent all elements growing together
+        # Natural tendencies
         total = sum(new_state.values())
-        if total > 300:  # If total energy becomes too high
-            scaling_factor = 300 / total
+        target_total = 100.0  # Target total energy in system
+
+        # Normalize if total energy gets too high or too low
+        if total > target_total * 1.5 or total < target_total * 0.5:
+            scale_factor = target_total / total
             for element in Element:
-                new_state[element] *= scaling_factor
+                new_state[element] *= scale_factor
+
+        # Ensure minimum values
+        for element in Element:
+            new_state[element] = max(1.0, min(100.0, new_state[element]))
 
         self.state = new_state
         self.history.append(self.state.copy())
 
         return self.state
 
-    def get_dominant_element(self):
-        """Return the currently dominant element"""
-        return max(self.state.items(), key=lambda x: x[1])[0]
+    def update_batch(self, model, metrics):
+        """Update based on network metrics with bounded calculations"""
+        # Water - adaptability (decreased loss, varied gradients)
+        if metrics.get('loss_decreasing', False):
+            self.state[Element.WATER] += 0.2
+        if metrics.get('gradient_norm', 0.0) > 0.5:
+            self.state[Element.WATER] += 0.1
+
+        # Wood - growth (accuracy improvement)
+        if metrics.get('accuracy', 0.0) > 0.7:
+            self.state[Element.WOOD] += 0.2
+
+        # Fire - transformation (high gradient activity)
+        if metrics.get('gradient_norm', 0.0) > 1.0:
+            self.state[Element.FIRE] += 0.3
+
+        # Earth - stability (moderate, balanced metrics)
+        if 0.7 < metrics.get('accuracy', 0.0) < 0.9:
+            self.state[Element.EARTH] += 0.2
+
+        # Metal - precision (high accuracy, low gradients)
+        if metrics.get('accuracy', 0.0) > 0.9:
+            self.state[Element.METAL] += 0.3
+        if metrics.get('gradient_norm', 0.0) < 0.1:
+            self.state[Element.METAL] += 0.1
+
+        # Process system dynamics
+        self.step(dt=0.02)
+
+    def update_epoch(self, model, metrics):
+        """Similar to batch update but with stronger effects"""
+        self.update_batch(model, metrics)  # Call twice for stronger effect
+        self.update_batch(model, metrics)
 
     def get_element_strengths(self):
-        """Get current strengths of all elements"""
+        """Get current element strengths"""
         return self.state
 
-    def update_batch(self, model, network_metrics):
-        """Update based on batch metrics"""
-        # Water (adaptability) strengthened by decreasing loss, varied gradients
-        if network_metrics['loss_decreasing']:
-            self.state[Element.WATER] += 0.1
-        if network_metrics['gradient_norm'] > 0.5:
-            self.state[Element.WATER] += 0.05
-
-        # Wood (growth) strengthened by increasing accuracy
-        if network_metrics['accuracy'] > 0.7:
-            self.state[Element.WOOD] += 0.1
-
-        # Fire (transformation) strengthened by high gradient activity
-        if network_metrics['gradient_norm'] > 1.0:
-            self.state[Element.FIRE] += 0.15
-
-        # Earth (stability) strengthened by balanced metrics
-        if 0.7 < network_metrics['accuracy'] < 0.9:
-            self.state[Element.EARTH] += 0.1
-        if 0.5 < network_metrics['weight_norm'] < 2.0:
-            self.state[Element.EARTH] += 0.05
-
-        # Metal (precision) strengthened by high accuracy, low gradients
-        if network_metrics['accuracy'] > 0.9:
-            self.state[Element.METAL] += 0.15
-        if network_metrics['gradient_norm'] < 0.1:
-            self.state[Element.METAL] += 0.05
-
-        # Apply system dynamics
-        self.step(dt=0.01)
-
-    def update_epoch(self, model, network_metrics):
-        """Update based on epoch metrics"""
-        # Similar to update_batch but with larger effects
-        if network_metrics['loss_decreasing']:
-            self.state[Element.WATER] += 1.0
-        if network_metrics['gradient_norm'] > 0.5:
-            self.state[Element.WATER] += 0.5
-
-        if network_metrics['accuracy'] > 0.7:
-            self.state[Element.WOOD] += 1.0
-
-        if network_metrics['gradient_norm'] > 1.0:
-            self.state[Element.FIRE] += 1.5
-
-        if 0.7 < network_metrics['accuracy'] < 0.9:
-            self.state[Element.EARTH] += 1.0
-        if 0.5 < network_metrics['weight_norm'] < 2.0:
-            self.state[Element.EARTH] += 0.5
-
-        if network_metrics['accuracy'] > 0.9:
-            self.state[Element.METAL] += 1.5
-        if network_metrics['gradient_norm'] < 0.1:
-            self.state[Element.METAL] += 0.5
-
-        # Apply system dynamics with a larger time step
-        self.step(dt=0.1)
+    def get_dominant_element(self):
+        """Return currently dominant element"""
+        return max(self.state.items(), key=lambda x: x[1])[0]
 
 
 #################################################
-# Wu Wei Optimizer - Non-Action (Advanced)
+# Wu Wei Optimizer - Non-Action (Practical Version)
 #################################################
 
 class WuWeiOptimizer(torch.optim.Optimizer):
     """
-    Enhanced Wu Wei Optimizer with dynamic threshold adaptation and strategic non-action.
+    Practical Wu Wei Optimizer with dynamic threshold adaptation and strategic non-action.
 
     This optimizer embodies the principles of Wu Wei (non-action) by:
     1. Only updating parameters that truly need changing
     2. Adapting thresholds based on training progress
-    3. Preserving natural parameter flows while removing obstacles
-    4. Employing a three-tier update strategy (strong, moderate, none)
+    3. Employing a three-tier update strategy (strong, moderate, none)
     """
 
     def __init__(self, params, lr=0.001, betas=(0.9, 0.999),
                  threshold=0.01, adapt_rate=0.01, wu_wei_ratio=0.7):
-        """Initialize the enhanced Wu Wei Optimizer"""
+        """Initialize the Wu Wei Optimizer"""
         if not isinstance(params, (list, tuple)):
             params = list(params)
 
@@ -734,7 +611,6 @@ class WuWeiOptimizer(torch.optim.Optimizer):
 
                     # Get proposed updates
                     proposed_update = p.data - state['prev_params']
-                    update_significance = proposed_update.abs().mean(dim=1)
 
                     # Determine which outputs to update based on thresholds
                     current_threshold = self.param_thresholds[param_id]
@@ -760,7 +636,6 @@ class WuWeiOptimizer(torch.optim.Optimizer):
 
                     # Get proposed updates
                     proposed_update = p.data - state['prev_params']
-                    update_significance = proposed_update.abs()
 
                     # Determine which elements to update based on thresholds
                     current_threshold = self.param_thresholds[param_id]
@@ -867,234 +742,256 @@ class WuWeiOptimizer(torch.optim.Optimizer):
 
 
 #################################################
-# Celestial Mechanism Grabber
+# Wu Xing Cycle Scheduler - Practical Learning Rate Scheduler
 #################################################
 
-class CelestialMechanismGrabber:
+class WuXingCycleScheduler:
     """
-    Enhanced implementation of the mechanism-grabbing principle.
-    Identifies critical points with minimal computational overhead and maximizes intervention impact.
+    Learning rate scheduler based on the practical Wu Xing cycle.
+    Uses mathematical patterns from the five-element cycle without arbitrary cosmic timing.
+    """
+
+    def __init__(self, optimizer, cycle_length=20, max_lr=0.01, min_lr=0.0001):
+        """
+        Initialize WuXingCycleScheduler with practical, math-based approach.
+
+        Args:
+            optimizer: The optimizer to schedule
+            cycle_length: Length of a complete five-element cycle in steps
+            max_lr: Maximum learning rate
+            min_lr: Minimum learning rate
+        """
+        self.optimizer = optimizer
+        self.cycle_length = cycle_length
+        self.max_lr = max_lr
+        self.min_lr = min_lr
+        self.step_count = 0
+
+        # Element phase configuration (logical progression)
+        self.phases = {
+            # Water phase: fluid, adaptable - high learning rate
+            'water': {'position': 0.0, 'lr_factor': 1.0},
+
+            # Wood phase: structured growth - gradually decreasing rate
+            'wood': {'position': 0.2, 'lr_factor': 0.8},
+
+            # Fire phase: transformation - moderate rate for consolidation
+            'fire': {'position': 0.4, 'lr_factor': 0.6},
+
+            # Earth phase: stability - lower rate for fine-tuning
+            'earth': {'position': 0.6, 'lr_factor': 0.4},
+
+            # Metal phase: refinement - lowest rate for precision
+            'metal': {'position': 0.8, 'lr_factor': 0.2}
+        }
+
+        # Global decay factor to ensure eventual convergence
+        self.global_decay = 0.98
+
+        # Keep track of cycle completions
+        self.cycle_count = 0
+
+    def step(self):
+        """Take a scheduler step and update learning rates"""
+        self.step_count += 1
+
+        # Calculate position in current cycle (0 to 1)
+        cycle_position = (self.step_count % self.cycle_length) / self.cycle_length
+
+        # Determine which element phase we're in and the next phase
+        current_phase = None
+        next_phase = None
+
+        # Find current and next phases
+        phase_positions = sorted([(name, info['position']) for name, info in self.phases.items()],
+                                 key=lambda x: x[1])
+
+        for i, (phase_name, position) in enumerate(phase_positions):
+            if position <= cycle_position:
+                current_phase = phase_name
+                next_phase = phase_positions[(i + 1) % len(phase_positions)][0]
+
+        # If we've wrapped around
+        if current_phase is None:
+            current_phase = phase_positions[-1][0]
+            next_phase = phase_positions[0][0]
+
+        # Calculate interpolation between phases
+        current_pos = self.phases[current_phase]['position']
+        next_pos = self.phases[next_phase]['position']
+
+        # Handle wraparound case
+        if next_pos < current_pos:
+            next_pos += 1.0
+
+        # Calculate interpolation factor (0 to 1)
+        if next_pos > current_pos:
+            interp = (cycle_position - current_pos) / (next_pos - current_pos)
+        else:
+            interp = 0
+
+        # Interpolate learning rate factors
+        current_lr_factor = self.phases[current_phase]['lr_factor']
+        next_lr_factor = self.phases[next_phase]['lr_factor']
+
+        lr_factor = current_lr_factor * (1 - interp) + next_lr_factor * interp
+
+        # Apply global decay based on cycle count
+        if self.step_count >= self.cycle_length and self.step_count % self.cycle_length == 0:
+            self.cycle_count += 1
+
+        decay = self.global_decay ** self.cycle_count
+
+        # Calculate final learning rate
+        lr = self.min_lr + (self.max_lr - self.min_lr) * lr_factor * decay
+
+        # Update optimizer learning rates
+        for param_group in self.optimizer.param_groups:
+            param_group['lr'] = lr
+
+        return lr
+
+    def update_with_metrics(self, loss, accuracy, trackers):
+        """Update learning rate based on metrics - optional enhancement"""
+        # Apply standard step
+        lr = self.step()
+
+        # Apply Wu Xing influence if available
+        if 'wu_xing_balance' in trackers:
+            wu_xing_tracker = trackers['wu_xing_balance']
+            if hasattr(wu_xing_tracker, 'get_element_strengths'):
+                # Get current element strengths
+                element_strengths = wu_xing_tracker.get_element_strengths()
+
+                # Calculate total strength
+                total_strength = sum(element_strengths.values())
+
+                # Calculate element factors
+                factors = {}
+                for element, strength in element_strengths.items():
+                    # Normalize to get proportion of total
+                    factors[element] = strength / total_strength
+
+                # Apply weighted adjustment based on element properties
+                adjustment = 1.0 + (
+                    # Water (adaptability) - increases learning rate
+                        0.1 * factors.get(Element.WATER, 0) +
+                        # Wood (growth) - slightly increases learning rate
+                        0.05 * factors.get(Element.WOOD, 0) -
+                        # Fire (transformation) - neutral effect
+                        0.0 * factors.get(Element.FIRE, 0) -
+                        # Earth (stability) - slightly decreases learning rate
+                        0.05 * factors.get(Element.EARTH, 0) -
+                        # Metal (precision) - decreases learning rate
+                        0.1 * factors.get(Element.METAL, 0)
+                )
+
+                # Apply adjustment within reasonable bounds
+                adjustment = max(0.8, min(1.2, adjustment))
+
+                # Update learning rates
+                for param_group in self.optimizer.param_groups:
+                    param_group['lr'] = max(self.min_lr, min(self.max_lr, param_group['lr'] * adjustment))
+
+                # Return adjusted learning rate
+                return [group['lr'] for group in self.optimizer.param_groups]
+
+        return [lr]
+
+
+#################################################
+# Practical Mechanism Grabber
+#################################################
+
+class PracticalMechanismGrabber:
+    """
+    A practical, mathematics-based mechanism grabber that identifies and addresses
+    critical points in the network without relying on celestial timing.
     """
 
     def __init__(self):
-        """Initialize the celestial mechanism grabber"""
-        self.hexagrams = Hexagrams()
-        self.wu_xing = WuXingSystem()
-        self.bagua_activations = BaguaActivations()
-
-        # Map network states to trigram energies
-        self.network_trigram_mapping = {
-            'gradient_flow': ['kan', 'li'],  # Water and Fire for gradient flow
-            'weight_stability': ['gen', 'kun'],  # Mountain and Earth for stability
-            'activation_pattern': ['zhen', 'xun'],  # Thunder and Wind for activation
-            'optimization_state': ['qian', 'dui']  # Heaven and Lake for optimization
-        }
-
-        # Intervention types
+        """Initialize with mathematical criteria"""
         self.intervention_types = {
             'activate': self._activate_intervention,
             'stabilize': self._stabilize_intervention,
-            'balance': self._balance_intervention,
-            'transform': self._transform_intervention,
-            'harmonize': self._harmonize_intervention
+            'balance': self._balance_intervention
         }
 
-        # Timing windows for interventions (based on cosmic cycles)
-        self.timing_cycles = {
-            'short': 7,  # 7-step cycle (like days in a week)
-            'medium': 28,  # 28-step cycle (like lunar month)
-            'long': 60  # 60-step cycle (like sexagenary cycle)
-        }
-
-        # Initialize timing counters
+        # Track step count and interventions for practical timing
         self.step_counter = 0
         self.intervention_history = []
-
-    def analyze_trigram_balance(self, model, metrics):
-        """Analyze trigram energy balance in network"""
-        trigram_strengths = {trigram: 0.0 for trigram in self.bagua_activations.bagua.trigrams}
-
-        # Calculate trigram energies based on network state
-        for aspect, trigrams in self.network_trigram_mapping.items():
-            if aspect == 'gradient_flow':
-                # Measure gradient smoothness and magnitude
-                gradient_norm = metrics.get('gradient_norm', 1.0)
-                kan_strength = min(1.0, 1.0 / (1.0 + gradient_norm))  # Water - smooth flow
-                li_strength = min(1.0, gradient_norm / 2.0)  # Fire - transformation
-                trigram_strengths['kan'] += kan_strength
-                trigram_strengths['li'] += li_strength
-
-            elif aspect == 'weight_stability':
-                # Measure weight stability
-                weight_norm = metrics.get('weight_norm', 1.0)
-                loss = metrics.get('loss', 0.5)
-
-                gen_strength = min(1.0, 1.0 / (1.0 + weight_norm))  # Mountain - stillness
-                kun_strength = min(1.0, 1.0 / (1.0 + loss))  # Earth - receptivity
-
-                trigram_strengths['gen'] += gen_strength
-                trigram_strengths['kun'] += kun_strength
-
-            elif aspect == 'activation_pattern':
-                # Measure activation patterns
-                activation_mean = metrics.get('activation_mean', 0.0)
-                activation_std = metrics.get('activation_std', 0.5)
-
-                zhen_strength = min(1.0, activation_std)  # Thunder - arousing
-                xun_strength = min(1.0, 1.0 - abs(activation_mean))  # Wind - gentle
-
-                trigram_strengths['zhen'] += zhen_strength
-                trigram_strengths['xun'] += xun_strength
-
-            elif aspect == 'optimization_state':
-                # Measure optimization progress
-                accuracy = metrics.get('accuracy', 0.5)
-                loss_decreasing = metrics.get('loss_decreasing', True)
-
-                qian_strength = min(1.0, accuracy)  # Heaven - creative potential
-                dui_strength = min(1.0, 0.5 + (0.5 if loss_decreasing else 0.0))  # Lake - joy
-
-                trigram_strengths['qian'] += qian_strength
-                trigram_strengths['dui'] += dui_strength
-
-        # Normalize strengths
-        max_strength = max(trigram_strengths.values())
-        if max_strength > 0:
-            for trigram in trigram_strengths:
-                trigram_strengths[trigram] /= max_strength
-
-        return trigram_strengths
-
-    def is_auspicious_timing(self, intervention_type):
-        """Determine if timing is auspicious for a specific intervention type"""
-        # Different interventions align with different cosmic cycles
-        if intervention_type == 'activate':
-            # Activation is best at beginning of cycles (like dawn)
-            return (self.step_counter % self.timing_cycles['short']) < 2
-
-        elif intervention_type == 'stabilize':
-            # Stabilization is best at middle of cycles (like zenith)
-            return abs((self.step_counter % self.timing_cycles['medium']) -
-                       (self.timing_cycles['medium'] // 2)) < 3
-
-        elif intervention_type == 'balance':
-            # Balance is best at transition points (like equinox)
-            return (self.step_counter % self.timing_cycles['medium']) in [7, 14, 21]
-
-        elif intervention_type == 'transform':
-            # Transformation is best at endings (like sunset)
-            return (self.step_counter % self.timing_cycles['short']) >= (self.timing_cycles['short'] - 2)
-
-        elif intervention_type == 'harmonize':
-            # Harmonization is best at completion points (like solstice)
-            return (self.step_counter % self.timing_cycles['long']) in [0, 30, 59]
-
-        return True  # Default to true for other types
+        self.min_steps_between_interventions = 5  # Prevent too-frequent interventions
 
     def find_mechanism_points(self, model, trackers, metrics=None):
-        """Find mechanism points for intervention"""
-        mechanism_points = []
+        """Identify intervention points using mathematical criteria"""
         self.step_counter += 1
+        mechanism_points = []
 
-        # Get current element strengths
+        # Get Wu Xing state if available
         element_strengths = {}
         if 'wu_xing_balance' in trackers:
             wu_xing_tracker = trackers['wu_xing_balance']
             if hasattr(wu_xing_tracker, 'get_element_strengths'):
                 element_strengths = wu_xing_tracker.get_element_strengths()
 
-        # Get current hexagram
-        current_hexagram = None
-        if 'hexagram_state' in trackers:
-            hex_tracker = trackers['hexagram_state']
-            if hasattr(hex_tracker, 'get_current_hexagram_index'):
-                current_hexagram = hex_tracker.get_current_hexagram_index()
+        # Extract key metrics with sensible defaults
+        metrics = metrics or {}
+        accuracy = metrics.get('accuracy', 0.5)
+        loss = metrics.get('loss', 1.0)
+        gradient_norm = metrics.get('gradient_norm', 0.5)
 
-        # Analyze trigram energy balance
-        trigram_strengths = self.analyze_trigram_balance(model, metrics or {})
-
-        # Examine each module in the model
+        # For each layer, calculate practical intervention scores
         for i, (name, module) in enumerate(model.named_modules()):
             if isinstance(module, nn.Linear):
-                # For each linear layer, determine potential intervention types
-
-                # Get layer statistics
                 if hasattr(module, 'weight'):
                     with torch.no_grad():
+                        # Calculate layer statistics
                         weight_mean = module.weight.mean().item()
                         weight_std = module.weight.std().item()
-                        weight_max = module.weight.abs().max().item()
                         weight_sparsity = (module.weight.abs() < 0.01).float().mean().item()
 
-                        # Determine layer position (input, hidden, output)
+                        # Simple layer position detection
                         layer_position = "hidden"
-                        if "input" in name or i == 0:
+                        if i == 0 or "input" in name:
                             layer_position = "input"
-                        elif "output" in name or i == len(list(model.modules())) - 1:
+                        elif i == len(list(model.modules())) - 1 or "output" in name:
                             layer_position = "output"
 
-                        # Calculate intervention scores based on layer stats and cosmic factors
-
-                        # 1. Activation intervention: for dead/dormant neurons
-                        activation_score = weight_sparsity * 2.0
-                        if layer_position == "input" and Element.WATER in element_strengths:
-                            activation_score *= 1.0 + element_strengths[Element.WATER] / 100.0
-
-                        # 2. Stabilization intervention: for unstable weights
-                        stability_score = min(1.0, weight_std / (0.1 + abs(weight_mean)))
-                        if layer_position == "hidden" and Element.EARTH in element_strengths:
-                            stability_score *= 1.0 + element_strengths[Element.EARTH] / 100.0
-
-                        # 3. Balance intervention: for imbalanced weights
-                        balance_score = min(1.0, abs(weight_mean) / (0.1 + weight_std))
-                        if Element.METAL in element_strengths:
-                            balance_score *= 1.0 + element_strengths[Element.METAL] / 100.0
-
-                        # 4. Transform intervention: for stale weights
-                        transform_score = 0.5  # Base score
-                        if layer_position == "hidden" and Element.FIRE in element_strengths:
-                            transform_score *= 1.0 + element_strengths[Element.FIRE] / 100.0
-
-                        # 5. Harmonize intervention: for connection flow
-                        harmonize_score = min(1.0, weight_max / 5.0)
-                        if Element.WOOD in element_strengths:
-                            harmonize_score *= 1.0 + element_strengths[Element.WOOD] / 100.0
-
-                        # Adjust scores based on trigram energies
-                        if trigram_strengths['kan'] > 0.7:  # Strong Water energy
-                            activation_score *= 1.3
-                        if trigram_strengths['gen'] > 0.7:  # Strong Mountain energy
-                            stability_score *= 1.3
-                        if trigram_strengths['kun'] > 0.7:  # Strong Earth energy
-                            balance_score *= 1.3
-                        if trigram_strengths['li'] > 0.7:  # Strong Fire energy
-                            transform_score *= 1.3
-                        if trigram_strengths['xun'] > 0.7:  # Strong Wind energy
-                            harmonize_score *= 1.3
-
-                        # Select highest scoring intervention type
+                        # Calculate practical intervention scores
                         scores = {
-                            'activate': activation_score,
-                            'stabilize': stability_score,
-                            'balance': balance_score,
-                            'transform': transform_score,
-                            'harmonize': harmonize_score
+                            # Activation: for dead neurons (high sparsity)
+                            'activate': weight_sparsity * 5.0,
+
+                            # Stabilization: for high variance weights
+                            'stabilize': min(1.0, weight_std / max(0.01, abs(weight_mean))) * 3.0,
+
+                            # Balance: for weights with skewed distribution
+                            'balance': min(1.0, abs(weight_mean) / max(0.01, weight_std)) * 2.0
                         }
 
+                        # Apply Wu Xing influences if available
+                        if element_strengths:
+                            # Water helps activation (adaptability)
+                            if Element.WATER in element_strengths:
+                                scores['activate'] *= 1.0 + min(1.0, element_strengths[Element.WATER] / 50.0)
+
+                            # Earth helps stabilization (grounding)
+                            if Element.EARTH in element_strengths:
+                                scores['stabilize'] *= 1.0 + min(1.0, element_strengths[Element.EARTH] / 50.0)
+
+                            # Metal helps balance (precision)
+                            if Element.METAL in element_strengths:
+                                scores['balance'] *= 1.0 + min(1.0, element_strengths[Element.METAL] / 50.0)
+
+                        # Get highest scoring intervention
                         best_type = max(scores.items(), key=lambda x: x[1])
                         intervention_type, strength = best_type
 
-                        # Check timing aspects
-                        if self.is_auspicious_timing(intervention_type):
-                            strength *= 1.5  # Boost strength if timing is auspicious
-
-                        # Create intervention description
+                        # Create intervention
                         intervention = {
                             'type': intervention_type,
                             'layer': name,
-                            'description': f"{intervention_type.capitalize()} the {name} layer",
-                            'timing': self.is_auspicious_timing(intervention_type),
-                            'hexagram': current_hexagram
+                            'description': f"{intervention_type.capitalize()} the {name} layer"
                         }
 
                         # Add to potential mechanism points
@@ -1103,15 +1000,24 @@ class CelestialMechanismGrabber:
         # Sort by strength
         mechanism_points.sort(key=lambda x: x[1], reverse=True)
 
-        return mechanism_points[:3]  # Return top 3 points
+        # Return top 3 points
+        return mechanism_points[:3]
 
     def apply_intervention(self, model, intervention):
-        """Apply an intervention"""
-        # Get intervention type and layer
+        """Apply selected intervention"""
+        # Only apply if sufficient steps since last intervention
+        last_intervention_time = 0
+        if self.intervention_history:
+            last_intervention_time = self.intervention_history[-1]['step']
+
+        if self.step_counter - last_intervention_time < self.min_steps_between_interventions:
+            return False
+
+        # Apply the intervention
         int_type = intervention['type']
         layer_name = intervention['layer']
 
-        # Get the layer
+        # Find the layer
         layer = None
         for name, module in model.named_modules():
             if name == layer_name:
@@ -1121,18 +1027,16 @@ class CelestialMechanismGrabber:
         if layer is None:
             return False
 
-        # Apply the intervention
+        # Apply intervention if type is supported
         if int_type in self.intervention_types:
             success = self.intervention_types[int_type](layer, intervention)
 
-            # Record successful intervention
             if success:
+                # Record successful intervention
                 self.intervention_history.append({
                     'step': self.step_counter,
                     'type': int_type,
-                    'layer': layer_name,
-                    'timing': intervention.get('timing', False),
-                    'hexagram': intervention.get('hexagram', None)
+                    'layer': layer_name
                 })
 
             return success
@@ -1140,7 +1044,7 @@ class CelestialMechanismGrabber:
         return False
 
     def _activate_intervention(self, layer, intervention):
-        """Activation intervention - revitalize dead neurons"""
+        """Revitalize dead neurons with Lo Shu pattern"""
         if hasattr(layer, 'weight') and layer.weight is not None:
             with torch.no_grad():
                 # Find near-zero weights
@@ -1182,7 +1086,7 @@ class CelestialMechanismGrabber:
         return False
 
     def _stabilize_intervention(self, layer, intervention):
-        """Stabilization intervention - reduce outlier weights"""
+        """Reduce outlier weights"""
         if hasattr(layer, 'weight') and layer.weight is not None:
             with torch.no_grad():
                 # Calculate weight statistics
@@ -1202,7 +1106,7 @@ class CelestialMechanismGrabber:
         return False
 
     def _balance_intervention(self, layer, intervention):
-        """Balance intervention - equalize positive and negative weights"""
+        """Balance positive and negative weights"""
         if hasattr(layer, 'weight') and layer.weight is not None:
             with torch.no_grad():
                 # Balance positive and negative weights
@@ -1227,305 +1131,9 @@ class CelestialMechanismGrabber:
                             return True
         return False
 
-    def _transform_intervention(self, layer, intervention):
-        """Transform intervention - break stagnation patterns"""
-        if hasattr(layer, 'weight') and layer.weight is not None:
-            with torch.no_grad():
-                # Identify stagnant regions (weights that have similar magnitude)
-                flat_weights = layer.weight.view(-1)
-                sorted_weights, _ = torch.sort(flat_weights.abs())
-
-                # Look for plateaus in the sorted weights
-                diffs = sorted_weights[1:] - sorted_weights[:-1]
-                small_diffs = (diffs < 0.001).float()
-
-                # If we have a significant plateau, apply transformation
-                if small_diffs.mean() > 0.3:  # If 30% of adjacent weights are very similar
-                    # Apply Fire element transformation principles
-                    fire_factor = 0.2  # Fire element promotes transformation
-
-                    # Create a mask for weights to transform
-                    stagnant_mask = torch.zeros_like(flat_weights, dtype=torch.bool)
-
-                    # Identify plateaus of similar weights
-                    for i in range(len(small_diffs) - 4):
-                        if small_diffs[i:i + 5].sum() >= 4:  # At least 4 adjacent similar weights
-                            # Mark the middle of this plateau for transformation
-                            stagnant_mask[i + 2:i + 4] = True
-
-                    # Reshape mask back to weight dimensions
-                    stagnant_mask = stagnant_mask.view(layer.weight.shape)
-
-                    if stagnant_mask.sum() > 0:
-                        # Apply subtle transformation to stagnant weights
-                        layer.weight.data[stagnant_mask] *= (
-                                    1 + (torch.rand_like(layer.weight[stagnant_mask]) - 0.5) * fire_factor)
-                        return True
-        return False
-
-    def _harmonize_intervention(self, layer, intervention):
-        """Harmonize intervention - improve connection flow"""
-        if hasattr(layer, 'weight') and layer.weight is not None:
-            with torch.no_grad():
-                # Calculate flow patterns between neurons
-                if layer.weight.dim() > 1:
-                    # For each output neuron, calculate how balanced its inputs are
-                    input_strengths = layer.weight.abs().mean(dim=1, keepdim=True)
-                    normalized_weights = layer.weight / (input_strengths + 1e-6)
-
-                    # Find neurons with unbalanced input connections
-                    imbalance = normalized_weights.var(dim=1)
-                    unbalanced_mask = imbalance > imbalance.mean() + imbalance.std()
-
-                    # Apply Wood element harmonization principles
-                    wood_factor = 0.15  # Wood element promotes growth and flow
-
-                    if unbalanced_mask.sum() > 0:
-                        for i, is_unbalanced in enumerate(unbalanced_mask):
-                            if is_unbalanced:
-                                # Get this neuron's weights
-                                weights = layer.weight[i]
-
-                                # Calculate mean and standard deviation
-                                w_mean = weights.mean()
-                                w_std = weights.std()
-
-                                # Move extreme weights slightly toward mean
-                                extreme_mask = (weights - w_mean).abs() > 1.5 * w_std
-                                if extreme_mask.sum() > 0:
-                                    # Apply gentle harmonization
-                                    layer.weight.data[i][extreme_mask] = layer.weight.data[i][extreme_mask] * (
-                                                1 - wood_factor) + \
-                                                                         w_mean * wood_factor
-
-                        return True
-        return False
-
 
 #################################################
-# Celestial Timing Scheduler
-#################################################
-
-class CelestialTimingScheduler:
-    """
-    Learning rate scheduler based on celestial timing principles.
-    Aligns training phases with optimal cosmic cycles.
-    """
-
-    def __init__(self, optimizer, hexagram_tracker, wu_xing_tracker, base_lr=0.01, min_lr=1e-6, max_lr=1e-2):
-        """
-        Initialize CelestialTimingScheduler with improved strategy.
-        """
-        # Validate optimizer
-        if not isinstance(optimizer, torch.optim.Optimizer):
-            raise TypeError(f"{type(optimizer).__name__} is not an Optimizer")
-
-        self.optimizer = optimizer
-        self.hexagram_tracker = hexagram_tracker
-        self.wu_xing_tracker = wu_xing_tracker
-        self.bagua = Bagua()
-        self.min_lr = min_lr
-        self.max_lr = max_lr
-
-        # Initialize state tracking
-        self.step_count = 0
-        self.base_lrs = [group['lr'] for group in optimizer.param_groups]
-
-        # Define phases aligned with Later Heaven sequence
-        self.training_phases = {
-            'initialization': self.bagua.later_heaven_sequence[0],  # Kan (Water)
-            'early_training': self.bagua.later_heaven_sequence[1],  # Kun (Earth)
-            'acceleration': self.bagua.later_heaven_sequence[2],  # Zhen (Thunder)
-            'stabilization': self.bagua.later_heaven_sequence[3],  # Gen (Mountain)
-            'refinement': self.bagua.later_heaven_sequence[4],  # Qian (Heaven)
-            'completion': self.bagua.later_heaven_sequence[5],  # Dui (Lake)
-        }
-
-        # Current phase
-        self.current_phase = 'initialization'
-        self.phase_step_count = 0
-
-        # Cosmic cycles for timing
-        self.cycles = {
-            'diurnal': 12,  # 12-step day/night cycle
-            'lunar': 28,  # 28-step lunar month
-            'seasonal': 72,  # 72-step seasonal cycle
-            'annual': 360  # 360-step annual cycle
-        }
-
-        # Element factors for different phases
-        self.element_factors = {
-            Element.WATER: 1.0,  # Balanced, flowing
-            Element.WOOD: 1.2,  # Growth, expansion
-            Element.FIRE: 1.5,  # Transformation, activity
-            Element.EARTH: 0.8,  # Stability, consolidation
-            Element.METAL: 0.6  # Refinement, precision
-        }
-
-    def step(self, metrics=None):
-        """Basic step with cycle"""
-        self.step_count += 1
-
-        # Calculate cosmic cycle positions
-        diurnal_position = self.step_count % self.cycles['diurnal']
-        lunar_position = self.step_count % self.cycles['lunar']
-        seasonal_position = self.step_count % self.cycles['seasonal']
-        annual_position = self.step_count % self.cycles['annual']
-
-        # Determine phase based on training progress
-        self._update_training_phase(metrics)
-
-        # Get current trigram for this phase
-        current_trigram = self.training_phases[self.current_phase]
-
-        # Get current element
-        current_element = None
-        if hasattr(self.wu_xing_tracker, 'get_dominant_element'):
-            current_element = self.wu_xing_tracker.get_dominant_element()
-
-        # Calculate cosmic timing factor
-        timing_factor = self._calculate_timing_factor(
-            diurnal_position, lunar_position, seasonal_position, annual_position,
-            current_trigram, current_element
-        )
-
-        # Apply element factor if available
-        element_factor = 1.0
-        if current_element is not None:
-            element_factor = self.element_factors.get(current_element, 1.0)
-
-        # Combined factor with learning rate decay
-        base_decay = 0.995 ** (self.step_count / 100)
-        combined_factor = timing_factor * element_factor * base_decay
-
-        # Update learning rates with bounds
-        for i, group in enumerate(self.optimizer.param_groups):
-            group['lr'] = max(self.min_lr, min(self.max_lr, self.base_lrs[i] * combined_factor))
-
-        self.phase_step_count += 1
-
-        return [group['lr'] for group in self.optimizer.param_groups]
-
-    def _update_training_phase(self, metrics):
-        """Update the training phase based on metrics and progress"""
-        if metrics is None:
-            metrics = {}
-
-        # Get important metrics
-        loss = metrics.get('loss', 1.0)
-        accuracy = metrics.get('accuracy', 0.0)
-        epoch = metrics.get('epoch', self.step_count // 100)
-
-        # Determine appropriate phase based on training progress
-        new_phase = self.current_phase
-
-        if epoch < 5:
-            new_phase = 'initialization'
-        elif epoch < 15:
-            new_phase = 'early_training'
-        elif loss > 0.3:
-            new_phase = 'acceleration'
-        elif accuracy < 0.9:
-            new_phase = 'stabilization'
-        elif accuracy >= 0.9 and accuracy < 0.95:
-            new_phase = 'refinement'
-        else:
-            new_phase = 'completion'
-
-        # Phase transition logic
-        if new_phase != self.current_phase:
-            self._apply_phase_transition(new_phase)
-            self.current_phase = new_phase
-            self.phase_step_count = 0
-
-    def _calculate_timing_factor(self, diurnal, lunar, seasonal, annual, trigram, element):
-        """Calculate timing factor based on cosmic cycles"""
-        # Base timing factor
-        factor = 1.0
-
-        # Diurnal cycle effect (like hours of the day)
-        if diurnal < 3:  # Dawn - increasing energy
-            factor *= 1.1
-        elif diurnal < 6:  # Morning - high energy
-            factor *= 1.2
-        elif diurnal < 9:  # Afternoon - stable energy
-            factor *= 1.0
-        else:  # Evening - decreasing energy
-            factor *= 0.9
-
-        # Lunar cycle effect
-        moon_phase = lunar / self.cycles['lunar']
-        # New moon (0) and full moon (0.5) are high energy points
-        lunar_factor = 1.0 + 0.2 * math.cos(2 * math.pi * moon_phase)
-        factor *= lunar_factor
-
-        # Seasonal effect
-        season = (seasonal / self.cycles['seasonal']) * 4
-        if season < 1:  # Spring - growth
-            seasonal_factor = 1.2
-        elif season < 2:  # Summer - peak
-            seasonal_factor = 1.5
-        elif season < 3:  # Autumn - harvest
-            seasonal_factor = 0.9
-        else:  # Winter - rest
-            seasonal_factor = 0.7
-        factor *= seasonal_factor
-
-        # Trigram-specific adjustments
-        if trigram == 'kan':  # Water - flow
-            factor *= 1.0
-        elif trigram == 'li':  # Fire - transformation
-            factor *= 1.2
-        elif trigram == 'zhen':  # Thunder - activation
-            factor *= 1.3
-        elif trigram == 'gen':  # Mountain - stability
-            factor *= 0.8
-        elif trigram == 'kun':  # Earth - receptivity
-            factor *= 0.9
-        elif trigram == 'qian':  # Heaven - creativity
-            factor *= 1.1
-
-        return factor if factor > 0.0001 else 0.0001
-
-    def _apply_phase_transition(self, new_phase):
-        """Apply more gradual adjustments during phase transitions"""
-        if new_phase == 'initialization':
-            # Higher learning rates for exploration
-            for i, group in enumerate(self.optimizer.param_groups):
-                self.base_lrs[i] = self.max_lr
-
-        elif new_phase == 'acceleration':
-            # More moderate boost - reduced from 1.5x to 1.2x
-            for i, group in enumerate(self.optimizer.param_groups):
-                self.base_lrs[i] = min(self.max_lr, self.base_lrs[i] * 1.2)
-
-        elif new_phase == 'stabilization':
-            # Much gentler reduction - increased from 0.7x to 0.9x
-            for i, group in enumerate(self.optimizer.param_groups):
-                self.base_lrs[i] = max(self.min_lr * 10, self.base_lrs[i] * 0.9)
-
-        elif new_phase == 'refinement':
-            # Gentler reduction - increased from 0.5x to 0.7x
-            for i, group in enumerate(self.optimizer.param_groups):
-                self.base_lrs[i] = max(self.min_lr * 10, self.base_lrs[i] * 0.7)
-
-        elif new_phase == 'completion':
-            # Less dramatic minimum - increased from 0.3x to 0.5x
-            for i, group in enumerate(self.optimizer.param_groups):
-                self.base_lrs[i] = max(self.min_lr * 10, self.base_lrs[i] * 0.5)
-
-    def update_with_metrics(self, loss, accuracy, trackers):
-        """Update learning rate based on metrics and trackers"""
-        metrics = {
-            'loss': loss,
-            'accuracy': accuracy
-        }
-
-        # Apply standard step
-        return self.step(metrics)
-
-#################################################
-# DualLayer Mechanism Optimizer
+# DualLayer Mechanism Optimizer - Practical Meta-Optimizer
 #################################################
 
 class DualLayerMechanismOptimizer:
@@ -1533,16 +1141,14 @@ class DualLayerMechanismOptimizer:
     A meta-optimizer that combines regular optimization with mechanism-based interventions.
 
     This approach divides the optimization process into two complementary layers:
-    1. Regular, continuous updates using an inner optimizer (Wu Wei)
-    2. Strategic, targeted interventions at mechanism points using CelestialMechanismGrabber
+    1. Regular, continuous updates using Wu Wei Optimizer
+    2. Strategic, targeted interventions at mechanism points
     """
 
     def __init__(self, model, base_optimizer, mechanism_grabber=None,
                  intervention_frequency=10, mechanism_threshold=1.5,
                  scheduler=None):
-        """
-        Initialize the dual-layer optimizer.
-        """
+        """Initialize the dual-layer optimizer"""
         # Validate inputs
         if not hasattr(model, 'parameters'):
             raise TypeError("Model must have parameters() method")
@@ -1552,7 +1158,7 @@ class DualLayerMechanismOptimizer:
 
         self.model = model
         self.base_optimizer = base_optimizer
-        self.mechanism_grabber = mechanism_grabber or CelestialMechanismGrabber()
+        self.mechanism_grabber = mechanism_grabber or PracticalMechanismGrabber()
         self.intervention_frequency = intervention_frequency
         self.mechanism_threshold = mechanism_threshold
         self.scheduler = scheduler
@@ -1657,8 +1263,7 @@ class DualLayerMechanismOptimizer:
         # Update hexagram state if tracker available
         if 'hexagram_state' in self.trackers:
             hex_tracker = self.trackers['hexagram_state']
-            if hasattr(hex_tracker, 'get_current_hexagram_index') and hasattr(hex_tracker,
-                                                                              'get_current_hexagram_name'):
+            if hasattr(hex_tracker, 'get_current_hexagram_index') and hasattr(hex_tracker, 'get_current_hexagram_name'):
                 hex_idx = hex_tracker.get_current_hexagram_index()
                 hex_name = hex_tracker.get_current_hexagram_name()
                 if 'hexagram_states' in self.metrics:
@@ -1688,8 +1293,9 @@ class DualLayerMechanismOptimizer:
         """Access to parameter groups for compatibility"""
         return self.base_optimizer.param_groups
 
+
 #################################################
-# Lo Shu Magic Square Neural Network
+# Lo Shu Neural Network
 #################################################
 
 class LoShuLayer(nn.Module):
@@ -1748,6 +1354,7 @@ class LoShuLayer(nn.Module):
         balanced_output = output + (5.0 / 45.0 - 0.1) * mean_activation
 
         return balanced_output
+
 
 class HexagramActivation(nn.Module):
     """
@@ -1834,6 +1441,7 @@ class HexagramActivation(nn.Module):
         # Apply the composite activation
         return composite_activation(x)
 
+
 class LoShuNN(nn.Module):
     """
     Neural network architecture based on the Lo Shu magic square and I-Ching principles.
@@ -1872,6 +1480,7 @@ class LoShuNN(nn.Module):
 
         return x
 
+
 #################################################
 # Training and Evaluation Functions
 #################################################
@@ -1905,6 +1514,7 @@ def generate_data(n_samples=1000, n_features=9):
     y_test = torch.tensor(y_test, dtype=torch.float32)
 
     return X_train, y_train, X_test, y_test
+
 
 def train_epoch(model, optimizer, X, y, batch_size=32, trackers=None):
     """Train for one epoch"""
@@ -1952,11 +1562,9 @@ def train_epoch(model, optimizer, X, y, batch_size=32, trackers=None):
             weight_norm += param.norm().item()
         epoch_metrics['weight_norms'].append(weight_norm)
 
-        # Update weights with optimizer
+        # Calculate metrics for trackers
         current_loss = loss.item()
         epoch_metrics['batch_losses'].append(current_loss)
-
-        # Calculate metrics for trackers
         activation_mean = outputs.mean().item()
         activation_std = outputs.std().item()
 
@@ -2010,6 +1618,7 @@ def train_epoch(model, optimizer, X, y, batch_size=32, trackers=None):
 
     return avg_loss, accuracy
 
+
 def validate(model, X, y):
     """Evaluate the model"""
     model.eval()
@@ -2029,6 +1638,7 @@ def validate(model, X, y):
         accuracy = correct / total
 
     return loss.item(), accuracy
+
 
 def visualize_training(metrics):
     """Visualize training metrics"""
@@ -2085,6 +1695,7 @@ def visualize_training(metrics):
 
     plt.tight_layout()
     plt.show()
+
 
 def compare_models(lo_shu_model, standard_model, X_test, y_test, noise_levels=[0.0, 0.1, 0.2, 0.5]):
     """Compare Lo Shu model with standard model under different noise conditions"""
@@ -2168,14 +1779,15 @@ def compare_models(lo_shu_model, standard_model, X_test, y_test, noise_levels=[0
 
     return results
 
+
 #################################################
 # Main Function: Demonstration
 #################################################
 
 def main():
-    """Main function demonstrating Daoist Neural Network approach"""
+    """Main function demonstrating DaoML approach"""
     print("=== Daoist Neural Network Framework ===")
-    print("\nInitializing with celestial patterns...")
+    print("\nInitializing with practical patterns...")
 
     # Generate synthetic data
     print("\nGenerating synthetic data...")
@@ -2200,30 +1812,31 @@ def main():
     )
 
     # Initialize trackers
-    print("\nInitializing celestial trackers...")
+    print("\nInitializing trackers...")
     trackers = {
         'hexagram_state': HexagramStateTracker(),
-        'wu_xing_balance': WuXingSystem()
+        'wu_xing_balance': SimplifiedWuXing()
     }
 
     # Initialize mechanism grabber
-    print("\nInitializing celestial mechanism grabber...")
-    mechanism_grabber = CelestialMechanismGrabber()
+    print("\nInitializing practical mechanism grabber...")
+    mechanism_grabber = PracticalMechanismGrabber()
 
     # Set up Lo Shu model optimization
-    print("\nSetting up optimization approach...")
+    print("\nSetting up practical optimization approach...")
     base_optimizer = WuWeiOptimizer(
         lo_shu_model.parameters(),
-        lr=0.01,
-        threshold=0.01,
-        wu_wei_ratio=0.7
+        lr=0.001,
+        threshold=0.001,
+        wu_wei_ratio=0.07
     )
 
     # Create scheduler
-    lr_scheduler = CelestialTimingScheduler(
+    lr_scheduler = WuXingCycleScheduler(
         base_optimizer,
-        hexagram_tracker=trackers['hexagram_state'],
-        wu_xing_tracker=trackers['wu_xing_balance']
+        cycle_length=20,
+        max_lr=0.01,
+        min_lr=0.0001
     )
 
     # Create the dual-layer wrapper
@@ -2291,7 +1904,7 @@ def main():
 
             element_info = ""
             if 'wu_xing_balance' in trackers:
-                dominant = max(trackers['wu_xing_balance'].state.items(), key=lambda x: x[1])[0]
+                dominant = trackers['wu_xing_balance'].get_dominant_element()
                 element_info = f", Element: {dominant.name}"
 
             print(f"Epoch {epoch + 1}/{epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, "
@@ -2398,6 +2011,7 @@ def main():
             print(f"  - {element.name}: {strength:.2f}")
 
     print("\n=== Daoist Neural Network Framework Demonstration Complete ===")
+
 
 if __name__ == "__main__":
     main()
