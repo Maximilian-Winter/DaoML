@@ -1,0 +1,69 @@
+=== Daoist Neural Network Framework ===
+
+Initializing with celestial patterns...
+
+Generating synthetic data...
+Data shapes: X_train torch.Size([2400, 9]), y_train torch.Size([2400, 1]), X_test torch.Size([600, 9]), y_test torch.Size([600, 1])
+
+Creating Lo Shu Neural Network...
+Creating Standard Neural Network for comparison...
+
+Initializing celestial trackers...
+
+Initializing celestial mechanism grabber...
+
+Setting up optimization approach...
+
+Training Lo Shu Neural Network...
+Epoch 1/50, Train Loss: 0.8731, Val Loss: 0.5673, Train Acc: 0.6587, Val Acc: 0.6867, LR: 0.010000, Hexagram: 36 (Ming Yi (明夷) - Darkening of Light), Element: FIRE
+Epoch 10/50, Train Loss: 0.3961, Val Loss: 0.3959, Train Acc: 0.8229, Val Acc: 0.8283, LR: 0.010000, Hexagram: 52 (Feng (豐) - Abundance), Element: FIRE
+Epoch 20/50, Train Loss: 0.3690, Val Loss: 0.3628, Train Acc: 0.8337, Val Acc: 0.8433, LR: 0.010000, Hexagram: 52 (Feng (豐) - Abundance), Element: FIRE
+Epoch 30/50, Train Loss: 0.2895, Val Loss: 0.3113, Train Acc: 0.8771, Val Acc: 0.8750, LR: 0.000001, Hexagram: 52 (Feng (豐) - Abundance), Element: FIRE
+Epoch 40/50, Train Loss: 0.2878, Val Loss: 0.3104, Train Acc: 0.8779, Val Acc: 0.8750, LR: 0.000001, Hexagram: 52 (Feng (豐) - Abundance), Element: FIRE
+Epoch 50/50, Train Loss: 0.2927, Val Loss: 0.3094, Train Acc: 0.8746, Val Acc: 0.8767, LR: 0.000001, Hexagram: 52 (Feng (豐) - Abundance), Element: FIRE
+
+Training complete for Lo Shu model.
+
+Training Standard Neural Network for comparison...
+Epoch 1/50, Train Loss: 0.4270, Val Loss: 0.3205, Train Acc: 0.7967, Val Acc: 0.8467
+Epoch 10/50, Train Loss: 0.1823, Val Loss: 0.2411, Train Acc: 0.9250, Val Acc: 0.9017
+Epoch 20/50, Train Loss: 0.1189, Val Loss: 0.1904, Train Acc: 0.9533, Val Acc: 0.9267
+Epoch 30/50, Train Loss: 0.1040, Val Loss: 0.1730, Train Acc: 0.9596, Val Acc: 0.9300
+Epoch 40/50, Train Loss: 0.0715, Val Loss: 0.2128, Train Acc: 0.9696, Val Acc: 0.9433
+Epoch 50/50, Train Loss: 0.0495, Val Loss: 0.2324, Train Acc: 0.9800, Val Acc: 0.9483
+
+Training complete for standard model.
+
+Comparing models...
+
+Model Comparison Results:
+-------------------------
+Noise Level  Lo Shu Acc   Standard Acc Speedup
+--------------------------------------------------
+0.00         0.8767       0.9483       0.00        x
+0.10         0.8700       0.8933       0.00        x
+0.20         0.8517       0.8217       0.40        x
+0.50         0.7533       0.6500       0.00        x
+
+Visualizing Lo Shu model training results...
+
+Final evaluation:
+Lo Shu model - validation loss: 0.3094, accuracy: 0.8767
+Standard model - validation loss: 0.2324, accuracy: 0.9483
+
+Total hexagram transitions: 3055
+Most frequent hexagrams:
+  - 54 (Sun (巽) - The Gentle): 1027
+  - 22 (Kun (困) - Oppression): 871
+  - 18 (Dui (兌) - The Joyous): 302
+  - 50 (Huan (渙) - Dispersion): 293
+  - 6 (Gen (艮) - Keeping Still): 232
+
+Final Wu Xing element strengths:
+  - WATER: 0.10
+  - WOOD: 66.24
+  - FIRE: 100.00
+  - EARTH: 56.33
+  - METAL: 0.10
+
+=== Daoist Neural Network Framework Demonstration Complete ===
