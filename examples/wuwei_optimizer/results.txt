@@ -1,0 +1,56 @@
+=== DaoML Framework Optimization Example ===
+
+Generating synthetic data...
+Data shapes: X_train torch.Size([2400, 9]), y_train torch.Size([2400, 1]), X_test torch.Size([600, 9]), y_test torch.Size([600, 1])
+
+Creating model...
+SimpleModel(
+  (input_layer): Linear(in_features=9, out_features=64, bias=True)
+  (hidden_layers): ModuleList(
+    (0): Linear(in_features=64, out_features=32, bias=True)
+    (1): Linear(in_features=32, out_features=16, bias=True)
+  )
+  (output_layer): Linear(in_features=16, out_features=1, bias=True)
+)
+Total trainable parameters: 3265
+
+Initializing trackers...
+
+Initializing mechanism grabber...
+
+Setting up optimization approach...
+
+Starting training...
+Epoch 1/50, Train Loss: 0.6874, Val Loss: 0.6833, Train Acc: 0.5500, Val Acc: 0.6067, LR: 0.009238, Hexagram: 44 (Cui (萃) - Gathering Together), Element: METAL
+Epoch 10/50, Train Loss: 0.2180, Val Loss: 0.2762, Train Acc: 0.9108, Val Acc: 0.8883, LR: 0.010000, Hexagram: 52 (Feng (豐) - Abundance), Element: FIRE
+Epoch 20/50, Train Loss: 0.1376, Val Loss: 0.1971, Train Acc: 0.9479, Val Acc: 0.9283, LR: 0.006949, Hexagram: 52 (Feng (豐) - Abundance), Element: FIRE
+Epoch 30/50, Train Loss: 0.0674, Val Loss: 0.2151, Train Acc: 0.9762, Val Acc: 0.9200, LR: 0.002838, Hexagram: 52 (Feng (豐) - Abundance), Element: METAL
+Epoch 40/50, Train Loss: 0.0496, Val Loss: 0.2347, Train Acc: 0.9850, Val Acc: 0.9267, LR: 0.001288, Hexagram: 52 (Feng (豐) - Abundance), Element: METAL
+Epoch 50/50, Train Loss: 0.0375, Val Loss: 0.2656, Train Acc: 0.9908, Val Acc: 0.9333, LR: 0.001315, Hexagram: 52 (Feng (豐) - Abundance), Element: METAL
+
+Training complete.
+
+Visualizing training results...
+
+Final evaluation:
+Final validation loss: 0.2656, accuracy: 0.9333
+
+Total mechanism interventions: 0
+Intervention types:
+
+Total hexagram transitions: 3102
+Most frequent hexagrams:
+  - 22 (Kun (困) - Oppression): 1005
+  - 54 (Sun (巽) - The Gentle): 684
+  - 62 (Da Xu (大畜) - Great Taming): 608
+  - 18 (Dui (兌) - The Joyous): 213
+  - 30 (Li (離) - The Clinging): 187
+
+Final Wu Xing element strengths:
+  - WATER: 49.95
+  - WOOD: 67.11
+  - FIRE: 30.14
+  - EARTH: 43.96
+  - METAL: 100.00
+
+=== Example complete ===

@@ -1,0 +1,46 @@
+Generating synthetic data...
+Initializing models...
+
+Training Standard Neural Network...
+Epoch 10/100, Train Loss: 0.6916, Test Loss: 0.7091, Train Acc: 0.5113, Test Acc: 0.4850
+Epoch 20/100, Train Loss: 0.6765, Test Loss: 0.6947, Train Acc: 0.5337, Test Acc: 0.5150
+Epoch 30/100, Train Loss: 0.6616, Test Loss: 0.6805, Train Acc: 0.5875, Test Acc: 0.5450
+Epoch 40/100, Train Loss: 0.6466, Test Loss: 0.6663, Train Acc: 0.6187, Test Acc: 0.5900
+Epoch 50/100, Train Loss: 0.6314, Test Loss: 0.6519, Train Acc: 0.6475, Test Acc: 0.6250
+Epoch 60/100, Train Loss: 0.6162, Test Loss: 0.6373, Train Acc: 0.6687, Test Acc: 0.6400
+Epoch 70/100, Train Loss: 0.6010, Test Loss: 0.6226, Train Acc: 0.6850, Test Acc: 0.6650
+Epoch 80/100, Train Loss: 0.5860, Test Loss: 0.6080, Train Acc: 0.7025, Test Acc: 0.6950
+Epoch 90/100, Train Loss: 0.5714, Test Loss: 0.5936, Train Acc: 0.7150, Test Acc: 0.7050
+Epoch 100/100, Train Loss: 0.5573, Test Loss: 0.5797, Train Acc: 0.7188, Test Acc: 0.7150
+Standard model training completed in 1.09 seconds
+
+Training Lo Shu Neural Network...
+Epoch 10/100, Train Loss: 0.6860, Test Loss: 0.6862, Train Acc: 0.5325, Test Acc: 0.5400
+Epoch 20/100, Train Loss: 0.6769, Test Loss: 0.6782, Train Acc: 0.6137, Test Acc: 0.6200
+Epoch 30/100, Train Loss: 0.6677, Test Loss: 0.6701, Train Acc: 0.6900, Test Acc: 0.6750
+Epoch 40/100, Train Loss: 0.6583, Test Loss: 0.6619, Train Acc: 0.7200, Test Acc: 0.7200
+Epoch 50/100, Train Loss: 0.6487, Test Loss: 0.6536, Train Acc: 0.7462, Test Acc: 0.7200
+Epoch 60/100, Train Loss: 0.6389, Test Loss: 0.6450, Train Acc: 0.7513, Test Acc: 0.7250
+Epoch 70/100, Train Loss: 0.6288, Test Loss: 0.6362, Train Acc: 0.7487, Test Acc: 0.7350
+Epoch 80/100, Train Loss: 0.6184, Test Loss: 0.6269, Train Acc: 0.7525, Test Acc: 0.7300
+Epoch 90/100, Train Loss: 0.6078, Test Loss: 0.6173, Train Acc: 0.7563, Test Acc: 0.7350
+Epoch 100/100, Train Loss: 0.5969, Test Loss: 0.6075, Train Acc: 0.7550, Test Acc: 0.7400
+Lo Shu model training completed in 0.08 seconds
+
+Plotting results...
+
+Evaluating robustness to noise...
+
+Final Performance Comparison:
+Standard NN - Final Test Accuracy: 0.7150
+Lo Shu NN - Final Test Accuracy: 0.7400
+
+Training Time - Standard NN: 1.09s, Lo Shu NN: 0.08s
+
+Robustness to Noise:
+Noise Level 0.0 - Standard: 0.7150, Lo Shu: 0.7400
+Noise Level 0.1 - Standard: 0.7200, Lo Shu: 0.7250
+Noise Level 0.2 - Standard: 0.6900, Lo Shu: 0.7250
+Noise Level 0.3 - Standard: 0.6900, Lo Shu: 0.7250
+Noise Level 0.4 - Standard: 0.6900, Lo Shu: 0.7300
+Noise Level 0.5 - Standard: 0.6950, Lo Shu: 0.7350
